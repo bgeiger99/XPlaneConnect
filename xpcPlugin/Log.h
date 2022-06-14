@@ -22,7 +22,7 @@
 #define LOG_DEBUG 5
 #define LOG_TRACE 6
 
-#define LOG_LEVEL LOG_TRACE
+#define LOG_LEVEL LOG_WARN
 
 namespace XPC
 {
