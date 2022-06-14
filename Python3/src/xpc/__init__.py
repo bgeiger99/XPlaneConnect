@@ -418,6 +418,79 @@ class XPlaneConnect(object):
             buffer = struct.pack(("<4sxBB" + str(len(points)) + "f").encode(), b"WYPT", op, len(points), *points)
         self.sendUDP(buffer)
 
+    def getTERRResponse(self):
+        """Reads the terrain request response generated when using the GETT or POST messages
+        (see sendPOST).
+
+            Args: None
+
+            Returns: A list with the information for the terrain output. The format of the output
+                is [Lat, Lon, Alt, Nx, Ny, Nz, Vx, Vy, Vz, wet, result]. The first three are
+                the Latitude and Longitude of the aircraft with the height of the terrian
+                directly below it. The next three (Nx, Ny, Nz) are the terrain normal vector.
+                The next three (Vx, Vy, Vz) are the velocity of the terrain point. The
+                wet variable is 0 if the terrain is dry and 1 if the terrain is wet. The last
+                output is the terrain probe output parameter.
+        """
+
+        resultBuf = self.readUDP()  # [Lat, Lon, Alt, Nx, Ny, Nz, Vx, Vy, Vz, wet, result]
+        if len(resultBuf) == 62:
+            result = struct.unpack(b"<4sxBdddffffffii", resultBuf)
+        else:
+            raise ValueError(f"Unexpected response length: {len(resultBuf)}, expected 62")
+
+        if result[0] != b"TERR":
+            print(result)
+            raise ValueError("Unexpected header: " + result[0])
+
+        return result
+
+    def sendPOST(self, values, ac=0):
+        """Sets the position  and orientation and gets terrain information of the specified aircraft.
+
+            Args:
+              values: The position values to set. `values` is a array containing up to
+                7 elements. If less than 7 elements are specified or any elment is set to `-998`,
+                those values will not be changed. The elements in `values` corespond to the
+                following:
+                  * Latitude (deg)
+                  * Longitude (deg)
+                  * Altitude (m above MSL)
+                  * Pitch (deg)
+                  * Roll (deg)
+                  * True Heading (deg)
+                  * Gear (0=up, 1=down)
+              ac: The aircraft to set the position of. 0 is the main/player aircraft.
+
+            Returns:
+                A list with the information for the terrain output. The format of the output
+                is [Lat, Lon, Alt, Nx, Ny, Nz, Vx, Vy, Vz, wet, result]. The first three are
+                the Latitude and Longitude of the aircraft with the height of the terrian
+                directly below it. The next three (Nx, Ny, Nz) are the terrain normal vector.
+                The next three (Vx, Vy, Vz) are the velocity of the terrain point. The
+                wet variable is 0 if the terrain is dry and 1 if the terrain is wet. The last
+                output is the terrain probe output parameter.
+
+        """
+
+        if len(values) < 1 or len(values) > 7:
+            raise ValueError("Must have between 0 and 7 items in values.")
+        if ac < 0 or ac > 20:
+            raise ValueError("Aircraft number must be between 0 and 20.")
+
+        # Pack message
+        vals = values + (7-len(values))*[-998]
+        buffer =  struct.pack(b"<4sxBdddffff", b"POST", ac, *vals)
+
+        # Send
+        self.sendUDP(buffer)
+
+        # Read Response
+        result = self.getTERRResponse()
+
+        # Drop the header & ac from the return value
+        return result[2:]
+
 
 class ViewType(object):
     Forwards = 73
