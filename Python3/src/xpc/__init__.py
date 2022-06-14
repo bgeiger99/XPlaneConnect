@@ -194,15 +194,8 @@ class XPlaneConnect(object):
             raise ValueError("Aircraft number must be between 0 and 20.")
 
         # Pack message
-        buffer = struct.pack(b"<4sxB", b"POSI", ac)
-        for i in range(7):
-            val = -998
-            if i < len(values):
-                val = values[i]
-            if i < 3:
-                buffer += struct.pack(b"<d", val)
-            else:
-                buffer += struct.pack(b"<f", val)
+        vals = values + (7-len(values))*[-998]
+        buffer =  struct.pack(b"<4sxBdddffff", b"POSI", ac, *vals)
 
         # Send
         self.sendUDP(buffer)
